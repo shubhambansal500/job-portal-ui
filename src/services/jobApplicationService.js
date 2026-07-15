@@ -74,6 +74,22 @@ export const hasApplied = async (jobId) => {
 };
 
 /**
+ * Get all applications across all users (Admin)
+ */
+export const getAllApplications = async () => {
+  await delay();
+  const allApps = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key.startsWith('jobApplications_')) {
+      const apps = JSON.parse(localStorage.getItem(key) || '[]');
+      allApps.push(...apps);
+    }
+  }
+  return allApps;
+};
+
+/**
  * Get all applications for a specific job (Employer)
  */
 export const getApplicationsByJob = async (jobId) => {
