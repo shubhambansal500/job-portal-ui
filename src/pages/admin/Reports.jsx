@@ -1,31 +1,8 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useJobsData } from '../../contexts/JobsDataContext';
 import { useCompanies } from '../../contexts/CompaniesContext';
-
-const getAllApplications = () => {
-  const apps = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key.startsWith('jobApplications_')) {
-      const userApps = JSON.parse(localStorage.getItem(key) || '[]');
-      apps.push(...userApps);
-    }
-  }
-  return apps;
-};
-
-const getRegisteredUserCounts = () => {
-  const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
-  return registeredUsers.reduce(
-    (counts, user) => {
-      counts.total += 1;
-      if (user.role === 'ROLE_EMPLOYER') counts.employers += 1;
-      else if (user.role === 'ROLE_JOB_SEEKER') counts.jobSeekers += 1;
-      return counts;
-    },
-    { total: 0, employers: 0, jobSeekers: 0 }
-  );
-};
+import { getAllApplications } from '../../services/jobApplicationService';
+import { getRegisteredUserCount } from '../../services/reportService';
 
 const StatCard = ({ label, value, textColor, bgColor }) => (
   <div className={`${bgColor} rounded-xl p-6 border border-gray-200 dark:border-gray-700`}>
@@ -70,11 +47,29 @@ const Reports = () => {
   const { jobs, loading: jobsLoading } = useJobsData();
   const { companies, loading: companiesLoading } = useCompanies();
   const [applications, setApplications] = useState([]);
-  const [userCounts, setUserCounts] = useState({ total: 0, employers: 0, jobSeekers: 0 });
+  const [registeredUserCount, setRegisteredUserCount] = useState(0);
+  const [reportDataLoading, setReportDataLoading] = useState(true);
 
   useEffect(() => {
-    setApplications(getAllApplications());
-    setUserCounts(getRegisteredUserCounts());
+    let isMounted = true;
+
+    const loadReportData = async () => {
+      const [apps, userCount] = await Promise.all([
+        getAllApplications(),
+        getRegisteredUserCount()
+      ]);
+      if (isMounted) {
+        setApplications(apps);
+        setRegisteredUserCount(userCount);
+        setReportDataLoading(false);
+      }
+    };
+
+    loadReportData();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const jobsByCategory = useMemo(() => {
@@ -101,7 +96,7 @@ const Reports = () => {
     return toSortedEntries(counts, applications.length);
   }, [applications]);
 
-  const isLoading = jobsLoading || companiesLoading;
+  const isLoading = jobsLoading || companiesLoading || reportDataLoading;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
@@ -140,7 +135,7 @@ const Reports = () => {
               />
               <StatCard
                 label="Registered Users"
-                value={userCounts.total}
+                value={registeredUserCount}
                 textColor="text-amber-600 dark:text-amber-400"
                 bgColor="bg-amber-50 dark:bg-amber-900/20"
               />
